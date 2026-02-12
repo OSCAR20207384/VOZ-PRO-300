@@ -18,7 +18,6 @@ function decode(base64: string): Uint8Array {
 
 /**
  * Decodifica datos PCM crudos (16-bit) devueltos por la API a un AudioBuffer.
- * Se usa el desplazamiento (offset) correcto para evitar distorsiones o errores de memoria.
  */
 async function decodeAudioData(
   data: Uint8Array,
@@ -26,7 +25,6 @@ async function decodeAudioData(
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  // Aseguramos que el buffer esté alineado a 2 bytes para Int16
   const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
@@ -42,16 +40,15 @@ async function decodeAudioData(
 
 /**
  * Convierte un AudioBuffer a un Blob MP3 utilizando lamejs.
- * Optimizado para ser procesado en pequeños fragmentos y evitar bloqueos.
  */
 function audioBufferToMp3(buffer: AudioBuffer): Blob {
   const lame = (window as any).lamejs;
   if (!lame) {
-    console.error("Lamejs no detectado en el window. Se requiere para exportar a MP3.");
+    console.error("Lamejs no detectado.");
     return new Blob([], { type: 'audio/mp3' });
   }
 
-  const channels = 1; // Mono para máxima compatibilidad y menor peso
+  const channels = 1;
   const sampleRate = buffer.sampleRate;
   const mp3encoder = new lame.Mp3Encoder(channels, sampleRate, 128);
   const mp3Data: Uint8Array[] = [];
@@ -63,7 +60,6 @@ function audioBufferToMp3(buffer: AudioBuffer): Blob {
     const sampleChunk = samples.subarray(i, i + sampleBlockSize);
     const int16Samples = new Int16Array(sampleChunk.length);
     for (let j = 0; j < sampleChunk.length; j++) {
-      // Hard clipping para evitar distorsión digital
       let s = Math.max(-1, Math.min(1, sampleChunk[j]));
       int16Samples[j] = s < 0 ? s * 32768 : s * 32767;
     }
@@ -77,9 +73,25 @@ function audioBufferToMp3(buffer: AudioBuffer): Blob {
   return new Blob(mp3Data, { type: 'audio/mp3' });
 }
 
-export const analyzeVoiceReference = async (audioBase64: string, apiKey: string): Promise<string> => {
+// Helper seguro para obtener API Key
+const getApiKey = (providedKey?: string): string => {
+  if (providedKey && providedKey.trim() !== '') return providedKey;
+  
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey || (process.env.API_KEY as string) });
+    // Verificación segura del shim de process.env inyectado por Vite
+    const env = (typeof process !== 'undefined' && process.env) ? process.env : {};
+    return (env as any).API_KEY || "";
+  } catch {
+    return "";
+  }
+};
+
+export const analyzeVoiceReference = async (audioBase64: string, apiKey: string): Promise<string> => {
+  const key = getApiKey(apiKey);
+  if (!key) throw new Error("No hay API Key configurada.");
+  
+  try {
+    const ai = new GoogleGenAI({ apiKey: key });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -103,15 +115,16 @@ export const generateAudio = async (
   tone: ToneOption = 'Neutral',
   cloneProfile?: VoiceCloneProfile
 ): Promise<Blob> => {
+  const key = getApiKey(apiKey);
+  if (!key) throw new Error("API Key faltante.");
+
   const toneOption = TONE_OPTIONS.find(t => t.name === tone);
   const toneInstruction = toneOption?.prompt || '';
   const cloneInstruction = cloneProfile ? `ADN: ${cloneProfile.analysisPrompt}` : '';
-  
-  // Prompt ultra-minimalista para reducir el tiempo de razonamiento del modelo
   const prompt = `${toneInstruction} ${cloneInstruction}. Lee: "${text}"`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey || (process.env.API_KEY as string) });
+    const ai = new GoogleGenAI({ apiKey: key });
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: prompt }] }],

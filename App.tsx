@@ -91,7 +91,7 @@ export default function App() {
             analysis = await analyzeVoiceReference(base64, k);
             if (analysis) { success = true; break; }
           } catch (err: any) {
-            if (err.message?.includes('429')) await delay(2000);
+            if (err.message?.includes('429')) await delay(10000); // 10s para clonación
             continue;
           }
         }
@@ -104,7 +104,7 @@ export default function App() {
           setCloningStatus('success');
           setTimeout(() => setCloningStatus('idle'), 3000);
         } else {
-          alert("Error en el análisis de ADN (Límite excedido). Intenta más tarde.");
+          alert("Error de Cuota: Google rechazó la muestra por exceso de peticiones. Espera 60 segundos.");
           setCloningStatus('idle');
         }
       };
@@ -142,8 +142,9 @@ export default function App() {
       const dna = (v as any)?.dna;
       const cloneProfile = dna ? { analysisPrompt: dna } as any : project.activeCloneProfile;
       await playPreview(voiceName, keys[0], project.tone, cloneProfile);
-    } catch (e) {
-      alert("Límite de cuota alcanzado. Espera 10 segundos.");
+    } catch (e: any) {
+      const is429 = e.message?.includes('429');
+      alert(is429 ? "Cuota agotada. Espera 20 segundos para probar de nuevo." : "Error de conexión.");
     }
   };
 
@@ -166,18 +167,19 @@ export default function App() {
       } catch (err: any) {
         if (err.message?.includes('429')) {
           setProject(p => ({
-            ...p, blocks: p.blocks.map(b => b.id === block.id ? { ...b, error: 'Esperando cuota...' } : b)
+            ...p, blocks: p.blocks.map(b => b.id === block.id ? { ...b, error: '⚠️ BLOQUEO DE CUOTA (20s)...' } : b)
           }));
-          await delay(3000); // Esperar entre rotación de llaves por 429
+          // Pausa agresiva para que Google resetee el contador de la cuenta Free
+          await delay(20000); 
         }
-        errorMsg = err.message || "Error desconocido";
+        errorMsg = err.message || "Error de red";
         continue;
       }
     }
 
     if (!success) {
       setProject(p => ({
-        ...p, blocks: p.blocks.map(b => b.id === block.id ? { ...b, status: 'failed', error: errorMsg } : b)
+        ...p, blocks: p.blocks.map(b => b.id === block.id ? { ...b, status: 'failed', error: 'Fallo crítico: ' + errorMsg } : b)
       }));
     }
     return success;
@@ -194,17 +196,17 @@ export default function App() {
     const dna = (voiceData as any)?.dna;
     const cloneProfile = dna ? { analysisPrompt: dna } as any : project.activeCloneProfile;
 
-    // PROCESAMIENTO SECUENCIAL para evitar Error 429
+    // PROCESAMIENTO SECUENCIAL ULTRA-CONSERVADOR PARA EVITAR 429
     const pendingBlocks = project.blocks.filter(b => b.status !== 'completed');
     
     for (const block of pendingBlocks) {
       const ok = await processBlock(block, keys, project.voice, project.tone, cloneProfile);
-      if (!ok) {
-        // Si falla del todo, damos un pequeño respiro antes del siguiente bloque
-        await delay(2000);
+      if (ok) {
+        // Pausa de cortesía de 3 segundos entre bloques para evitar ráfagas
+        await delay(3000);
       } else {
-        // Retraso de cortesía entre peticiones exitosas para mantener el RPM bajo
-        await delay(1000);
+        // Si falló, pausamos 10 segundos antes de intentar con el siguiente bloque
+        await delay(10000);
       }
     }
 
@@ -224,7 +226,7 @@ export default function App() {
     localStorage.setItem('VOZPRO_API_KEYS', JSON.stringify(apiKeys));
     localStorage.setItem('VOZPRO_API_ENABLED', JSON.stringify(apiKeysEnabled));
     setIsApiModalOpen(false);
-    alert("Nodos sincronizados.");
+    alert("Nodos sincronizados y listos.");
   };
 
   if (!user) return (
@@ -277,7 +279,7 @@ export default function App() {
                     <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} className={`px-4 rounded-2xl text-[9px] font-black transition-all ${apiKeysEnabled[id] ? 'bg-green-500 text-white shadow-md' : 'bg-slate-200 text-slate-400'}`}>{apiKeysEnabled[id] ? 'ON' : 'OFF'}</button>
                  </div>
                ))}
-               <p className="text-[9px] text-slate-400 italic">El sistema rotará entre las llaves activas si una falla por cuota.</p>
+               <p className="text-[9px] text-slate-400 italic">💡 Sugerencia: Usa varias llaves para que el sistema rote si una alcanza el límite.</p>
                <button onClick={saveKeys} className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase mt-4">Sincronizar Nodos</button>
             </div>
           </div>
@@ -295,7 +297,7 @@ export default function App() {
             <div className="p-10 space-y-8">
               <div className={`border-4 border-dashed rounded-[3rem] p-12 text-center cursor-pointer transition-all ${cloningStatus === 'analyzing' ? 'animate-pulse bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-100 hover:border-blue-400'}`} onClick={() => fileInputRef.current?.click()}>
                 <input type="file" accept="audio/*" className="hidden" ref={fileInputRef} onChange={handleCloneUpload} />
-                {cloningStatus === 'analyzing' ? <p className="font-black text-blue-600">PROCESANDO MUESTRA...</p> : 
+                {cloningStatus === 'analyzing' ? <p className="font-black text-blue-600">ANALIZANDO FRECUENCIAS...</p> : 
                  project.activeCloneProfile ? <div className="flex flex-col items-center gap-4"><Icons.Check /><p className="font-black text-green-600 uppercase">ADN CAPTURADO</p></div> :
                  <div className="flex flex-col items-center"><Icons.Upload /><p className="mt-4 font-black">SUBIR AUDIO DE REFERENCIA</p></div>}
               </div>
@@ -324,7 +326,10 @@ export default function App() {
 
         <div className="lg:col-span-4 space-y-8">
            <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm">
-              <h3 className="font-black text-xl italic mb-8 flex items-center gap-2"><Icons.Mood /> Parámetros</h3>
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="font-black text-xl italic flex items-center gap-2"><Icons.Mood /> Parámetros</h3>
+                {project.isProcessing && <div className="w-3 h-3 bg-red-500 rounded-full animate-ping"></div>}
+              </div>
               <div className="grid grid-cols-3 gap-2 mb-8 max-h-[200px] overflow-y-auto custom-scrollbar p-1">
                 {TONE_OPTIONS.map(t => (
                   <button key={t.name} onClick={() => setProject({...project, tone: t.name})} className={`p-4 rounded-2xl border-2 flex flex-col items-center transition-all ${project.tone === t.name ? 'border-blue-500 bg-blue-50' : 'border-slate-50 hover:bg-slate-100'}`}>
@@ -362,8 +367,9 @@ export default function App() {
                 alert(`${blocks.length} bloques segmentados.`);
               }} className="w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs mb-3 shadow-lg">Dividir Guion</button>
               <button onClick={handleGenerateMaster} disabled={project.isProcessing} className="w-full py-7 bg-blue-600 text-white rounded-[2.5rem] font-black uppercase text-xs shadow-2xl hover:bg-blue-700 transition-all disabled:bg-slate-200">
-                {project.isProcessing ? 'PROCESANDO SECUENCIALMENTE...' : 'GENERAR MASTER MP3'}
+                {project.isProcessing ? '⚙️ PROCESANDO (COOLDOWN ACTIVO)' : '🚀 GENERAR MASTER MP3'}
               </button>
+              <p className="text-[8px] text-slate-400 text-center mt-4 italic uppercase">El sistema incluye pausas automáticas para evitar bloqueos de Google.</p>
            </div>
         </div>
         
@@ -375,7 +381,7 @@ export default function App() {
                   <div key={b.id} className={`p-8 bg-white border-2 rounded-[3.5rem] shadow-sm flex flex-col justify-between transition-all hover:shadow-xl ${b.status === 'completed' ? 'border-green-100' : 'border-slate-50'}`}>
                       <div className="flex justify-between items-start mb-6">
                         <span className={`text-[10px] font-black uppercase px-4 py-2 rounded-full ${b.status === 'completed' ? 'bg-green-100 text-green-600' : b.status === 'failed' ? 'bg-red-50 text-red-500' : 'bg-slate-100 text-slate-400'}`}>
-                          {b.status === 'completed' ? 'DESCARGA LISTA' : b.status === 'processing' ? (b.error ? 'ESPERANDO CUOTA...' : 'GENERANDO...') : b.status === 'failed' ? 'ERROR' : 'EN COLA'}
+                          {b.status === 'completed' ? 'AUDIO LISTO' : b.status === 'processing' ? (b.error ? 'PAUSA DE CUOTA' : 'PROCESANDO') : b.status === 'failed' ? 'ERROR CRÍTICO' : 'PENDIENTE'}
                         </span>
                         {b.status === 'completed' && <Icons.Star />}
                       </div>
@@ -385,16 +391,16 @@ export default function App() {
                           <>
                             <button onClick={() => new Audio(b.audioUrl).play()} className="flex-1 py-5 bg-indigo-600 text-white rounded-3xl font-black text-[10px] uppercase shadow-lg hover:bg-indigo-700 transition-all">ESCUCHAR</button>
                             <a href={b.audioUrl} download={b.filename} className="flex-1 py-5 bg-slate-900 text-white rounded-3xl font-black text-[10px] uppercase text-center flex items-center justify-center gap-2 shadow-lg hover:bg-black transition-all">
-                              <Icons.Download /> BAJAR MP3
+                              <Icons.Download /> DESCARGAR
                             </a>
                           </>
                         ) : (
-                          <div className="w-full py-5 bg-slate-50 rounded-3xl text-[10px] font-black text-slate-300 text-center italic">
-                            {b.status === 'processing' ? (b.error ? 'BACKOFF ACTIVO...' : 'MASTERIZANDO...') : 'ESPERANDO...'}
+                          <div className={`w-full py-5 rounded-3xl text-[10px] font-black text-center italic ${b.error ? 'bg-orange-50 text-orange-600' : 'bg-slate-50 text-slate-300'}`}>
+                            {b.status === 'processing' ? (b.error ? 'RECUPERANDO...' : 'TRABAJANDO...') : 'EN COLA'}
                           </div>
                         )}
                       </div>
-                      {b.error && <p className="text-[10px] text-orange-600 mt-2 font-bold text-center italic animate-pulse">{b.error}</p>}
+                      {b.error && <p className="text-[9px] text-orange-600 mt-3 font-bold text-center italic leading-tight uppercase">{b.error}</p>}
                   </div>
                 ))}
              </div>
