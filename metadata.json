@@ -1,0 +1,7 @@
+{
+  "name": "VozPro - Generador de Audio Inteligente",
+  "description": "Aplicación profesional para la segmentación de guiones y generación de audios utilizando IA con gestión de usuarios y dispositivos.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
