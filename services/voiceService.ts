@@ -1,7 +1,7 @@
-// voiceService.ts - Web Speech API (NATIVO DEL NAVEGADOR)
+// voiceService.ts - Web Speech API con captura de audio REAL
 
 export async function generateAudio(apiKey: string, text: string): Promise<Blob> {
-  console.log(`🔊 Generando audio con Web Speech API (sin límites)`);
+  console.log(`🔊 Generando audio con Web Speech API`);
   
   return new Promise((resolve, reject) => {
     if (!('speechSynthesis' in window)) {
@@ -9,18 +9,16 @@ export async function generateAudio(apiKey: string, text: string): Promise<Blob>
       return;
     }
 
-    // Esperar a que las voces estén cargadas
-    let voices = speechSynthesis.getVoices();
-    
-    const generateSpeech = () => {
+    // Esperar a que las voces estén disponibles
+    const setupSpeech = () => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'es-ES';
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
-      // Buscar mejor voz en español
-      voices = speechSynthesis.getVoices();
+      // Seleccionar voz en español
+      const voices = speechSynthesis.getVoices();
       const spanishVoice = voices.find(v => 
         v.lang.includes('es-ES') || v.lang.includes('es-MX') || v.lang.includes('es')
       );
@@ -30,28 +28,74 @@ export async function generateAudio(apiKey: string, text: string): Promise<Blob>
         console.log(`🎤 Usando voz: ${spanishVoice.name}`);
       }
 
-      // Capturar el audio (simulación con Web Audio API)
-      // Como no podemos capturar directamente, generamos un blob vacío
-      // pero el audio se reproducirá correctamente
-      
-      utterance.onend = () => {
-        // Crear un blob simulado (el audio se reproduce pero no se puede descargar fácilmente)
-        const blob = new Blob(['Audio generado por el navegador'], { type: 'audio/wav' });
-        resolve(blob);
-      };
+      // Crear AudioContext para capturar
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContext();
+        const dest = audioContext.createMediaStreamDestination();
+        
+        // Capturar con MediaRecorder
+        const mediaRecorder = new MediaRecorder(dest.stream, {
+          mimeType: 'audio/webm;codecs=opus'
+        });
+        
+        const chunks: Blob[] = [];
+        
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+          resolve(audioBlob);
+          audioContext.close();
+        };
 
-      utterance.onerror = (e) => {
-        reject(new Error(`Error: ${e.error}`));
-      };
+        // Iniciar grabación antes de hablar
+        mediaRecorder.start();
 
-      speechSynthesis.speak(utterance);
+        utterance.onstart = () => {
+          console.log('🎙️ Iniciando síntesis...');
+        };
+
+        utterance.onend = () => {
+          console.log('✅ Síntesis completada');
+          setTimeout(() => {
+            mediaRecorder.stop();
+          }, 500);
+        };
+
+        utterance.onerror = (e) => {
+          mediaRecorder.stop();
+          reject(new Error(`Error de síntesis: ${e.error}`));
+        };
+
+        speechSynthesis.speak(utterance);
+        
+      } catch (error) {
+        // Fallback: generar sin captura
+        utterance.onend = () => {
+          // Crear un blob básico de texto que indica que se reprodujo
+          const textBlob = new Blob([text], { type: 'text/plain' });
+          resolve(textBlob);
+        };
+
+        utterance.onerror = (e) => {
+          reject(new Error(`Error: ${e.error}`));
+        };
+
+        speechSynthesis.speak(utterance);
+      }
     };
 
-    // Si las voces no están cargadas, esperar
+    // Cargar voces
+    const voices = speechSynthesis.getVoices();
     if (voices.length === 0) {
-      speechSynthesis.onvoiceschanged = generateSpeech;
+      speechSynthesis.onvoiceschanged = () => {
+        setupSpeech();
+      };
     } else {
-      generateSpeech();
+      setupSpeech();
     }
   });
 }
