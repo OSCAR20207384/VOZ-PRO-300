@@ -135,98 +135,111 @@ export default function App() {
         </div>
       </header>
 
-      {/* MODAL APIs (10 NODOS) */}
+      {/* MODAL APIs (10 NODOS) - CORREGIDO */}
       {isApiModalOpen && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl">
             <div className="p-8 border-b bg-slate-50 flex justify-between items-center sticky top-0 z-10">
-              <h2 className="text-xl font-black italic">Matriz de Respaldo Industrial</h2>
+              <h2 className="text-xl font-black italic">Matriz de Respaldo Industrial (Multi-API)</h2>
               <button onClick={() => setIsApiModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-all text-slate-400"><Icons.LogOut /></button>
             </div>
             <div className="p-8 grid md:grid-cols-4 gap-8">
               {/* GEMINI */}
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-blue-600 tracking-widest border-b pb-2">Gemini Pro</h3>
+                <h3 className="text-[10px] font-black uppercase text-blue-600 tracking-widest border-b pb-2">🔵 Gemini TTS</h3>
                 {['g1', 'g2', 'g3'].map(id => (
                   <div key={id} className="space-y-1">
-                   <input
-  type="password"
-  value={apiKeys[id]}
-  onChange={e => {
-    const cleaned = e.target.value
-      .trim()
-      .replace(/[\u200B-\u200D\uFEFF]/g, "")   // elimina caracteres invisibles
-      .replace(/\s+/g, "");                    // elimina espacios y saltos
-
-    setApiKeys({ ...apiKeys, [id]: cleaned });
-  }}
-  className="w-full p-3 rounded-xl border border-slate-200 text-[10px]"
-  placeholder={`API ${id.toUpperCase()}`}
-/>
-
-
-                    <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>{apiKeysEnabled[id] ? 'Activo' : 'Off'}</button>
+                    <input
+                      type="password"
+                      value={apiKeys[id]}
+                      onChange={e => {
+                        const cleaned = e.target.value.trim().replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, "");
+                        setApiKeys({ ...apiKeys, [id]: cleaned });
+                      }}
+                      className="w-full p-3 rounded-xl border border-slate-200 text-[10px] font-mono"
+                      placeholder={`AIza... (Gemini ${id.toUpperCase()})`}
+                    />
+                    <button 
+                      onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} 
+                      className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>
+                      {apiKeysEnabled[id] ? '✓ Activo' : 'Off'}
+                    </button>
                   </div>
                 ))}
               </div>
+
               {/* DEEPSEEK */}
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-indigo-600 tracking-widest border-b pb-2">DeepSeek</h3>
+                <h3 className="text-[10px] font-black uppercase text-indigo-600 tracking-widest border-b pb-2">🟣 DeepSeek TTS</h3>
                 {['d1', 'd2', 'd3'].map(id => (
                   <div key={id} className="space-y-1">
-                    onChange={e => {
-  const cleaned = e.target.value
-    .trim()
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")   // elimina caracteres invisibles
-    .replace(/\s+/g, "");                    // elimina espacios y saltos
-
-  setApiKeys({ ...apiKeys, [id]: cleaned });
-}}
-
-
-                    <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'}`}>{apiKeysEnabled[id] ? 'Activo' : 'Off'}</button>
+                    <input
+                      type="password"
+                      value={apiKeys[id]}
+                      onChange={e => {
+                        const cleaned = e.target.value.trim().replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, "");
+                        setApiKeys({ ...apiKeys, [id]: cleaned });
+                      }}
+                      className="w-full p-3 rounded-xl border border-slate-200 text-[10px] font-mono"
+                      placeholder={`sk-... (DeepSeek ${id.toUpperCase()})`}
+                    />
+                    <button 
+                      onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} 
+                      className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'}`}>
+                      {apiKeysEnabled[id] ? '✓ Activo' : 'Off'}
+                    </button>
                   </div>
                 ))}
               </div>
+
               {/* LONGCAT */}
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-purple-600 tracking-widest border-b pb-2">LongCat</h3>
+                <h3 className="text-[10px] font-black uppercase text-purple-600 tracking-widest border-b pb-2">🟪 LongCat TTS</h3>
                 {['l1', 'l2', 'l3'].map(id => (
                   <div key={id} className="space-y-1">
-                    onChange={e => {
-  const cleaned = e.target.value
-    .trim()
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")   // elimina caracteres invisibles
-    .replace(/\s+/g, "");                    // elimina espacios y saltos
-
-  setApiKeys({ ...apiKeys, [id]: cleaned });
-}}
-
-
-                    <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-400'}`}>{apiKeysEnabled[id] ? 'Activo' : 'Off'}</button>
+                    <input
+                      type="password"
+                      value={apiKeys[id]}
+                      onChange={e => {
+                        const cleaned = e.target.value.trim().replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, "");
+                        setApiKeys({ ...apiKeys, [id]: cleaned });
+                      }}
+                      className="w-full p-3 rounded-xl border border-slate-200 text-[10px] font-mono"
+                      placeholder={`sk-... (LongCat ${id.toUpperCase()})`}
+                    />
+                    <button 
+                      onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} 
+                      className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-400'}`}>
+                      {apiKeysEnabled[id] ? '✓ Activo' : 'Off'}
+                    </button>
                   </div>
                 ))}
               </div>
+
               {/* UNIVERSAL */}
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-orange-600 tracking-widest border-b pb-2">Universal</h3>
+                <h3 className="text-[10px] font-black uppercase text-orange-600 tracking-widest border-b pb-2">🟠 Universal</h3>
                 <div className="space-y-1">
-                 onChange={e => {
-  const cleaned = e.target.value
-    .trim()
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .replace(/\s+/g, "");
-
-  setApiKeys({ ...apiKeys, u1: cleaned });
-}}
-
-
-                  <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, u1: !apiKeysEnabled.u1})} className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled.u1 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-400'}`}>{apiKeysEnabled.u1 ? 'Activo' : 'Off'}</button>
+                  <input
+                    type="password"
+                    value={apiKeys.u1}
+                    onChange={e => {
+                      const cleaned = e.target.value.trim().replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, "");
+                      setApiKeys({ ...apiKeys, u1: cleaned });
+                    }}
+                    className="w-full p-3 rounded-xl border border-slate-200 text-[10px] font-mono"
+                    placeholder="sk-... (Cualquier API)"
+                  />
+                  <button 
+                    onClick={() => setApiKeysEnabled({...apiKeysEnabled, u1: !apiKeysEnabled.u1})} 
+                    className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled.u1 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-400'}`}>
+                    {apiKeysEnabled.u1 ? '✓ Activo' : 'Off'}
+                  </button>
                 </div>
               </div>
             </div>
             <div className="p-8 border-t">
-              <button onClick={saveKeys} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase shadow-xl hover:bg-black transition-all">Sincronizar Panel</button>
+              <button onClick={saveKeys} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase shadow-xl hover:bg-black transition-all">Sincronizar Panel Multi-API</button>
             </div>
           </div>
         </div>
@@ -249,7 +262,7 @@ export default function App() {
           <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm sticky top-28">
             <h3 className="font-black text-lg italic mb-6">Configuración Vocal</h3>
             
-            {/* ESTILOS DE NARRACIÓN (RESTAURADOS) */}
+            {/* ESTILOS DE NARRACIÓN */}
             <div className="mb-8">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Estilo de Narración</p>
               <div className="grid grid-cols-4 gap-2 h-44 overflow-y-auto custom-scrollbar p-1">
