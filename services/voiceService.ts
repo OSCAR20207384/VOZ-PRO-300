@@ -1,4 +1,4 @@
-// voiceService.ts - CON AUDIXA (100% GRATIS)
+// voiceService.ts - VERSION AUDIXA CORREGIDA
 
 function detectAPIType(apiKey: string): 'audixa' | 'elevenlabs' | 'unknown' {
   const key = apiKey.trim();
@@ -12,7 +12,7 @@ function detectAPIType(apiKey: string): 'audixa' | 'elevenlabs' | 'unknown' {
   return 'unknown';
 }
 
-// AUDIXA TTS (GRATIS SIN LÍMITES)
+// AUDIXA TTS (GRATIS)
 async function generateAudixaTTS(apiKey: string, text: string): Promise<Blob> {
   const response = await fetch('https://api.audixa.ai/v1/text-to-speech', {
     method: 'POST',
@@ -78,7 +78,7 @@ export async function generateAudio(apiKey: string, text: string): Promise<Blob>
         return await generateElevenLabsTTS(apiKey, text);
       
       default:
-        throw new Error(`API no reconocida. Key: ${apiKey.substring(0, 8)}...`);
+        throw new Error(`Tipo de API no reconocido. Key: ${apiKey.substring(0, 8)}...`);
     }
   } catch (error: any) {
     console.error(`❌ Error:`, error.message);
