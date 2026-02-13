@@ -73,7 +73,7 @@ export default function App() {
         }));
 
         try {
-          const blob = await generateAudio(block.text, project.voice, key, project.tone);
+          const blob = await generateAudio(key, block.text);
           setProject(p => ({
             ...p, blocks: p.blocks.map(b => b.id === block.id ? { ...b, status: 'completed', audioUrl: URL.createObjectURL(blob), error: undefined } : b)
           }));
