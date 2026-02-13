@@ -1,40 +1,80 @@
-// voiceService.ts - VERSION AUDIXA CORREGIDA
+// voiceService.ts - AUDIXA v2 CORRECTO (Async Workflow)
 
 function detectAPIType(apiKey: string): 'audixa' | 'elevenlabs' | 'unknown' {
   const key = apiKey.trim();
-  
-  // Audixa API (empieza con "adx_")
   if (key.startsWith('adx_')) return 'audixa';
-  
-  // ElevenLabs
   if (key.startsWith('ak_') || key.startsWith('sk_')) return 'elevenlabs';
-  
   return 'unknown';
 }
 
-// AUDIXA TTS (GRATIS)
+// AUDIXA TTS (Sistema Asíncrono)
 async function generateAudixaTTS(apiKey: string, text: string): Promise<Blob> {
-  const response = await fetch('https://api.audixa.ai/v1/text-to-speech', {
+  // Paso 1: Enviar solicitud de generación
+  const ttsResponse = await fetch('https://api.audixa.ai/v2/tts', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'x-api-key': apiKey,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       text: text,
-      voice_id: 'es-ES-Standard-A',
-      speed: 1.0,
-      audio_format: 'mp3'
+      voice: 'am_ethan', // Voz en inglés, cambia según necesites
+      model: 'base',
+      speed: 1.0
     })
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Audixa Error:', error);
-    throw new Error(`Audixa falló: ${response.status} - ${error}`);
+  if (!ttsResponse.ok) {
+    const error = await ttsResponse.text();
+    console.error('Audixa TTS Error:', error);
+    throw new Error(`Audixa TTS falló: ${ttsResponse.status}`);
   }
 
-  return await response.blob();
+  const { generation_id } = await ttsResponse.json();
+  console.log(`📝 Generation ID: ${generation_id}`);
+
+  // Paso 2: Polling del estado hasta que esté listo
+  let audioUrl = null;
+  let attempts = 0;
+  const maxAttempts = 30; // 30 segundos máximo
+
+  while (attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1 segundo
+
+    const statusResponse = await fetch(`https://api.audixa.ai/v2/status?generation_id=${generation_id}`, {
+      headers: { 'x-api-key': apiKey }
+    });
+
+    if (!statusResponse.ok) {
+      throw new Error(`Error al consultar estado: ${statusResponse.status}`);
+    }
+
+    const statusData = await statusResponse.json();
+    console.log(`🔄 Estado: ${statusData.status}`);
+
+    if (statusData.status === 'Completed') {
+      audioUrl = statusData.url;
+      break;
+    } else if (statusData.status === 'Failed') {
+      throw new Error('Generación de audio falló en Audixa');
+    }
+
+    attempts++;
+  }
+
+  if (!audioUrl) {
+    throw new Error('Timeout: Audio no generado en 30 segundos');
+  }
+
+  // Paso 3: Descargar el audio
+  console.log(`⬇️ Descargando audio desde: ${audioUrl}`);
+  const audioResponse = await fetch(audioUrl);
+  
+  if (!audioResponse.ok) {
+    throw new Error(`Error descargando audio: ${audioResponse.status}`);
+  }
+
+  return await audioResponse.blob();
 }
 
 // ELEVENLABS (backup)
@@ -87,7 +127,7 @@ export async function generateAudio(apiKey: string, text: string): Promise<Blob>
 }
 
 export async function playPreview(voiceName: string): Promise<void> {
-  const previewText = "Hola, esta es una prueba de voz.";
+  const previewText = "Hello, this is a voice preview test.";
   
   const savedKeys = localStorage.getItem('VOZPRO_KEYS_V3');
   const savedEnabled = localStorage.getItem('VOZPRO_ENABLED_V3');
