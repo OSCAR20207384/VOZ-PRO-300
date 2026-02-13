@@ -149,7 +149,22 @@ export default function App() {
                 <h3 className="text-[10px] font-black uppercase text-blue-600 tracking-widest border-b pb-2">Gemini Pro</h3>
                 {['g1', 'g2', 'g3'].map(id => (
                   <div key={id} className="space-y-1">
-                    <input type="password" value={apiKeys[id]} onChange={e => setApiKeys({...apiKeys, [id]: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 text-[10px]" placeholder={`API ${id.toUpperCase()}`} />
+                   <input
+  type="password"
+  value={apiKeys[id]}
+  onChange={e => {
+    const cleaned = e.target.value
+      .trim()
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")   // elimina caracteres invisibles
+      .replace(/\s+/g, "");                    // elimina espacios y saltos
+
+    setApiKeys({ ...apiKeys, [id]: cleaned });
+  }}
+  className="w-full p-3 rounded-xl border border-slate-200 text-[10px]"
+  placeholder={`API ${id.toUpperCase()}`}
+/>
+
+
                     <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>{apiKeysEnabled[id] ? 'Activo' : 'Off'}</button>
                   </div>
                 ))}
@@ -159,7 +174,16 @@ export default function App() {
                 <h3 className="text-[10px] font-black uppercase text-indigo-600 tracking-widest border-b pb-2">DeepSeek</h3>
                 {['d1', 'd2', 'd3'].map(id => (
                   <div key={id} className="space-y-1">
-                    <input type="password" value={apiKeys[id]} onChange={e => setApiKeys({...apiKeys, [id]: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 text-[10px]" placeholder={`API ${id.toUpperCase()}`} />
+                    onChange={e => {
+  const cleaned = e.target.value
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")   // elimina caracteres invisibles
+    .replace(/\s+/g, "");                    // elimina espacios y saltos
+
+  setApiKeys({ ...apiKeys, [id]: cleaned });
+}}
+
+
                     <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'}`}>{apiKeysEnabled[id] ? 'Activo' : 'Off'}</button>
                   </div>
                 ))}
@@ -169,7 +193,16 @@ export default function App() {
                 <h3 className="text-[10px] font-black uppercase text-purple-600 tracking-widest border-b pb-2">LongCat</h3>
                 {['l1', 'l2', 'l3'].map(id => (
                   <div key={id} className="space-y-1">
-                    <input type="password" value={apiKeys[id]} onChange={e => setApiKeys({...apiKeys, [id]: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 text-[10px]" placeholder={`API ${id.toUpperCase()}`} />
+                    onChange={e => {
+  const cleaned = e.target.value
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")   // elimina caracteres invisibles
+    .replace(/\s+/g, "");                    // elimina espacios y saltos
+
+  setApiKeys({ ...apiKeys, [id]: cleaned });
+}}
+
+
                     <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, [id]: !apiKeysEnabled[id]})} className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled[id] ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-400'}`}>{apiKeysEnabled[id] ? 'Activo' : 'Off'}</button>
                   </div>
                 ))}
@@ -178,7 +211,16 @@ export default function App() {
               <div className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase text-orange-600 tracking-widest border-b pb-2">Universal</h3>
                 <div className="space-y-1">
-                  <input type="password" value={apiKeys.u1} onChange={e => setApiKeys({...apiKeys, u1: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 text-[10px]" placeholder="API U1" />
+                 onChange={e => {
+  const cleaned = e.target.value
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\s+/g, "");
+
+  setApiKeys({ ...apiKeys, u1: cleaned });
+}}
+
+
                   <button onClick={() => setApiKeysEnabled({...apiKeysEnabled, u1: !apiKeysEnabled.u1})} className={`w-full py-1.5 rounded-lg text-[8px] font-black uppercase ${apiKeysEnabled.u1 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-400'}`}>{apiKeysEnabled.u1 ? 'Activo' : 'Off'}</button>
                 </div>
               </div>
