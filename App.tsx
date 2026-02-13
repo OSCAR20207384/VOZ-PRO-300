@@ -236,7 +236,7 @@ export default function App() {
                     </label>
                     <button onClick={async () => {
                       const keys = getActiveKeysSequence();
-                      if(keys.length > 0) await playPreview(v.name, keys[0], project.tone);
+                     if(keys.length > 0) await playPreview(v.name); 
                     }} className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-blue-600 hover:bg-blue-600 hover:text-white transition-all"><Icons.Play /></button>
                   </div>
                 ))}
