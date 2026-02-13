@@ -1,158 +1,139 @@
-// voiceService.ts - Sistema Multi-API con rotación automática
+// voiceService.ts - VERSIÓN CON APIs TTS GRATUITAS REALES
 
-interface VoiceConfig {
-  model: string;
-  voice?: string;
-  speed?: number;
-}
-
-// Detectar tipo de API según formato de la key
-function detectAPIType(apiKey: string): 'gemini' | 'deepseek' | 'longcat' | 'unknown' {
+function detectAPIType(apiKey: string): 'google' | 'elevenlabs' | 'playht' | 'wellsaid' | 'unknown' {
   const key = apiKey.trim();
   
-  // Google Gemini: comienza con "AIza"
-  if (key.startsWith('AIza')) return 'gemini';
+  // Google Cloud TTS: "AIza..."
+  if (key.startsWith('AIza')) return 'google';
   
-  // DeepSeek: comienza con "sk-" y contiene "deepseek"
-  if (key.startsWith('sk-') && key.toLowerCase().includes('deepseek')) return 'deepseek';
+  // ElevenLabs: "ak_..." o "sk_..."
+  if (key.startsWith('ak_') || (key.startsWith('sk_') && key.length > 40)) return 'elevenlabs';
   
-  // LongCat: comienza con "lc-" o formato específico
-  if (key.startsWith('lc-') || key.startsWith('sk-lc')) return 'longcat';
+  // Play.ht: formato específico
+  if (key.includes('playht') || key.startsWith('ph_')) return 'playht';
   
-  // Si empieza con "sk-" pero no es deepseek, asumir estándar OpenAI-compatible
-  if (key.startsWith('sk-')) return 'longcat'; // LongCat usa formato OpenAI
+  // WellSaid Labs
+  if (key.startsWith('ws_')) return 'wellsaid';
   
   return 'unknown';
 }
 
-// ==================== GEMINI TEXT-TO-SPEECH ====================
-async function generateGeminiAudio(apiKey: string, text: string): Promise<Blob> {
-  // Gemini usa la API de Google Cloud Text-to-Speech
-  const endpoint = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`;
-  
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      input: { text },
-      voice: {
-        languageCode: 'es-ES',
-        name: 'es-ES-Neural2-A', // Voz española neural
-        ssmlGender: 'FEMALE'
-      },
-      audioConfig: {
-        audioEncoding: 'MP3',
-        speakingRate: 1.0,
-        pitch: 0.0
-      }
-    })
-  });
+// GOOGLE CLOUD TTS (GRATIS: 1M caracteres/mes)
+async function generateGoogleTTS(apiKey: string, text: string): Promise<Blob> {
+  const response = await fetch(
+    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input: { text },
+        voice: { languageCode: 'es-ES', name: 'es-ES-Neural2-A', ssmlGender: 'FEMALE' },
+        audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0.0 }
+      })
+    }
+  );
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('Gemini API Error:', error);
-    throw new Error(`Gemini falló: ${response.status} - ${error}`);
+    console.error('Google TTS Error:', error);
+    throw new Error(`Google TTS falló: ${response.status}`);
   }
-
-  const data = await response.json();
   
-  // Google devuelve audio en Base64
-  const audioContent = data.audioContent;
-  const binaryString = atob(audioContent);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  const data = await response.json();
+  const binary = atob(data.audioContent);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
   }
   
   return new Blob([bytes], { type: 'audio/mpeg' });
 }
 
-// ==================== DEEPSEEK TEXT-TO-SPEECH ====================
-async function generateDeepSeekAudio(apiKey: string, text: string): Promise<Blob> {
-  // DeepSeek usa formato OpenAI-compatible
-  const response = await fetch('https://api.deepseek.com/v1/audio/speech', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'tts-1', // Modelo estándar de TTS
-      input: text,
-      voice: 'nova', // Opciones: alloy, echo, fable, onyx, nova, shimmer
-      response_format: 'mp3',
-      speed: 1.0
-    })
-  });
+// ELEVENLABS (GRATIS: 10,000 caracteres/mes)
+async function generateElevenLabsTTS(apiKey: string, text: string): Promise<Blob> {
+  const response = await fetch(
+    'https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM',
+    {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: { stability: 0.5, similarity_boost: 0.5 }
+      })
+    }
+  );
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('DeepSeek API Error:', error);
-    throw new Error(`DeepSeek falló: ${response.status} - ${error}`);
+    console.error('ElevenLabs Error:', error);
+    throw new Error(`ElevenLabs falló: ${response.status}`);
   }
-
-  // DeepSeek devuelve audio directo
+  
   return await response.blob();
 }
 
-// ==================== LONGCAT TEXT-TO-SPEECH ====================
-async function generateLongCatAudio(apiKey: string, text: string): Promise<Blob> {
-  // LongCat usa formato OpenAI con su endpoint específico
-  const response = await fetch('https://api.longcat.ai/v1/audio/speech', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'tts-1',
-      input: text,
-      voice: 'alloy', // Opciones según LongCat
-      response_format: 'mp3',
-      speed: 1.0
-    })
-  });
+// PLAY.HT (GRATIS con límites)
+async function generatePlayHtTTS(apiKey: string, text: string): Promise<Blob> {
+  const response = await fetch(
+    'https://api.play.ht/api/v2/tts',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'X-User-ID': 'YOUR_USER_ID', // Reemplazar con tu User ID
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text,
+        voice: 's3://voice-cloning-zero-shot/d9ff78ba-d016-47f6-b0ef-dd630f59414e/female-cs/manifest.json',
+        output_format: 'mp3'
+      })
+    }
+  );
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('LongCat API Error:', error);
-    throw new Error(`LongCat falló: ${response.status} - ${error}`);
+    console.error('Play.ht Error:', error);
+    throw new Error(`Play.ht falló: ${response.status}`);
   }
-
+  
   return await response.blob();
 }
 
-// ==================== FUNCIÓN PRINCIPAL MULTI-API ====================
+// FUNCIÓN PRINCIPAL
 export async function generateAudio(apiKey: string, text: string): Promise<Blob> {
   const apiType = detectAPIType(apiKey);
-  
   console.log(`🔄 Usando API: ${apiType.toUpperCase()} para generar audio`);
   
   try {
     switch (apiType) {
-      case 'gemini':
-        return await generateGeminiAudio(apiKey, text);
+      case 'google':
+        return await generateGoogleTTS(apiKey, text);
       
-      case 'deepseek':
-        return await generateDeepSeekAudio(apiKey, text);
+      case 'elevenlabs':
+        return await generateElevenLabsTTS(apiKey, text);
       
-      case 'longcat':
-        return await generateLongCatAudio(apiKey, text);
+      case 'playht':
+        return await generatePlayHtTTS(apiKey, text);
       
       default:
         throw new Error(`Tipo de API no reconocido. Key: ${apiKey.substring(0, 8)}...`);
     }
   } catch (error: any) {
     console.error(`❌ Error en ${apiType}:`, error.message);
-    throw error; // Re-lanzar para que el sistema de rotación lo maneje
+    throw error;
   }
 }
 
-// ==================== PREVIEW DE VOZ ====================
+// PREVIEW DE VOZ
 export async function playPreview(voiceName: string): Promise<void> {
   const previewText = "Hola, esta es una vista previa de la voz seleccionada.";
   
-  // Usar una key activa del localStorage para el preview
   const savedKeys = localStorage.getItem('VOZPRO_KEYS_V3');
   const savedEnabled = localStorage.getItem('VOZPRO_ENABLED_V3');
   
@@ -164,7 +145,6 @@ export async function playPreview(voiceName: string): Promise<void> {
   const keys = JSON.parse(savedKeys);
   const enabled = JSON.parse(savedEnabled);
   
-  // Buscar primera key activa
   const firstActiveKey = Object.keys(keys).find(
     id => enabled[id] && keys[id]?.trim()
   );
