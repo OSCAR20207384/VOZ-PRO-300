@@ -305,7 +305,8 @@ export default function App() {
                 let i = 0;
                 while(i < project.script.length) {
                   const end = i + CHARS_PER_BLOCK;
-                  blocks.push({ id: `b-${blocks.length}`, text: project.script.substring(i, end), filename: `${slugify(project.title)}-${blocks.length+1}.mp3`, status: 'pending' });
+                  blocks.push({ id: `b-${blocks.length}`, text: project.script.substring(i, end), filename: `${slugify(project.title)}-${blocks.length+1}.webm`
+, status: 'pending' });
                   i = end;
                 }
                 setProject({...project, blocks});
