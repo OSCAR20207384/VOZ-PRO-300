@@ -1,9 +1,7 @@
-// voiceService.ts - Captura de audio REAL como WebM
-
-let audioContext: AudioContext | null = null;
+// voiceService.ts - Grabación con límite de tiempo
 
 export async function generateAudio(apiKey: string, text: string): Promise<Blob> {
-  console.log('🎤 Grabando audio real...');
+  console.log('🎤 Generando audio...');
   
   return new Promise((resolve, reject) => {
     if (!('speechSynthesis' in window)) {
@@ -11,111 +9,104 @@ export async function generateAudio(apiKey: string, text: string): Promise<Blob>
       return;
     }
 
-    // Inicializar AudioContext
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-
-    // Crear destino para grabar
-    const dest = audioContext.createMediaStreamDestination();
-    
-    // Configurar MediaRecorder
-    let mediaRecorder: MediaRecorder;
-    try {
-      mediaRecorder = new MediaRecorder(dest.stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-    } catch (e) {
-      // Fallback si opus no está disponible
-      mediaRecorder = new MediaRecorder(dest.stream);
-    }
-
-    const chunks: Blob[] = [];
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        chunks.push(e.data);
-      }
-    };
-
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      console.log(`✅ Audio grabado: ${blob.size} bytes`);
-      resolve(blob);
-    };
-
-    // Crear utterance
+    // Crear síntesis
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-ES';
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
-    // Buscar voz en español
-    const loadVoices = () => {
-      const voices = speechSynthesis.getVoices();
-      const spanishVoice = voices.find(v => 
-        v.lang.startsWith('es-ES') || 
-        v.lang.startsWith('es-MX') || 
-        v.lang.startsWith('es')
-      );
-      
-      if (spanishVoice) {
-        utterance.voice = spanishVoice;
-        console.log(`🎤 Voz seleccionada: ${spanishVoice.name}`);
-      }
+    // Seleccionar voz
+    const voices = speechSynthesis.getVoices();
+    const spanishVoice = voices.find(v => v.lang.includes('es'));
+    if (spanishVoice) {
+      utterance.voice = spanishVoice;
+      console.log(`🎤 Voz: ${spanishVoice.name}`);
+    }
 
-      // Empezar a grabar ANTES de hablar
-      mediaRecorder.start();
+    // Variables de control
+    let audioChunks: Blob[] = [];
+    let recorder: MediaRecorder | null = null;
+    let isRecording = false;
+
+    try {
+      // Crear AudioContext y destino
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const dest = audioContext.createMediaStreamDestination();
+      
+      // Crear MediaRecorder con timeslice
+      recorder = new MediaRecorder(dest.stream);
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0 && isRecording) {
+          audioChunks.push(e.data);
+          console.log(`📦 Chunk: ${e.data.size} bytes`);
+        }
+      };
+
+      recorder.onstop = () => {
+        isRecording = false;
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        console.log(`✅ Total: ${blob.size} bytes`);
+        audioContext.close();
+        resolve(blob);
+      };
+
+      // Iniciar grabación con intervalo de 100ms
+      recorder.start(100);
+      isRecording = true;
       console.log('🔴 Grabación iniciada');
 
-      utterance.onstart = () => {
-        console.log('▶️ Síntesis iniciada');
-      };
+    } catch (error) {
+      console.error('❌ Error al crear grabador:', error);
+    }
 
-      utterance.onend = () => {
-        console.log('⏹️ Síntesis completada, deteniendo grabación...');
-        setTimeout(() => {
-          mediaRecorder.stop();
-        }, 500);
-      };
-
-      utterance.onerror = (e) => {
-        console.error('❌ Error en síntesis:', e.error);
-        mediaRecorder.stop();
-        reject(new Error(`Error de síntesis: ${e.error}`));
-      };
-
-      // Hablar
-      speechSynthesis.speak(utterance);
+    // Eventos de síntesis
+    utterance.onstart = () => {
+      console.log('▶️ Reproduciendo...');
     };
 
-    // Cargar voces
-    const voices = speechSynthesis.getVoices();
-    if (voices.length === 0) {
-      speechSynthesis.onvoiceschanged = () => {
-        loadVoices();
-      };
-    } else {
-      loadVoices();
-    }
+    utterance.onend = () => {
+      console.log('⏹️ Síntesis terminada');
+      
+      // Detener grabación después de medio segundo
+      setTimeout(() => {
+        if (recorder && isRecording) {
+          recorder.stop();
+        }
+      }, 500);
+    };
+
+    utterance.onerror = (e) => {
+      console.error('❌ Error:', e.error);
+      if (recorder && isRecording) {
+        recorder.stop();
+      }
+      reject(new Error(`Error: ${e.error}`));
+    };
+
+    // Hablar
+    speechSynthesis.speak(utterance);
+
+    // LÍMITE DE SEGURIDAD: detener después de 30 segundos máximo
+    setTimeout(() => {
+      if (recorder && isRecording) {
+        console.warn('⚠️ Tiempo límite alcanzado, deteniendo...');
+        recorder.stop();
+        speechSynthesis.cancel();
+      }
+    }, 30000);
   });
 }
 
 export async function playPreview(voiceName: string): Promise<void> {
-  const previewText = "Hola, esta es una vista previa de voz.";
+  const previewText = "Hola, esta es una vista previa";
   
-  if (!('speechSynthesis' in window)) {
-    alert('Tu navegador no soporta síntesis de voz');
-    return;
-  }
-
   const utterance = new SpeechSynthesisUtterance(previewText);
   utterance.lang = 'es-ES';
-  utterance.rate = 1.0;
   
   const voices = speechSynthesis.getVoices();
-  const spanishVoice = voices.find(v => v.lang.startsWith('es'));
+  const spanishVoice = voices.find(v => v.lang.includes('es'));
   if (spanishVoice) utterance.voice = spanishVoice;
 
   speechSynthesis.speak(utterance);
